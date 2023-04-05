@@ -6,6 +6,5 @@
   "readme": "README.md",
   "authors": [
       { "name": "keifufu", "url": "https://github.com/keifufu" }
-  ],
-  "tags": ["webnowplaying"]
+  ]
 }
