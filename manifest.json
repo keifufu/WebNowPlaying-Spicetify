@@ -4,7 +4,5 @@
   "preview": "images/settingspanel.jpg",
   "main": "dist/webnowplaying-redux.js",
   "readme": "README.md",
-  "authors": [
-      { "name": "keifufu", "url": "https://github.com/keifufu" }
-  ]
+  "authors": [{ "name": "keifufu", "url": "https://github.com/keifufu" }]
 }
