@@ -1,3 +1,5 @@
+/* global Spicetify */
+
 export const randomToken = (length = 24) => {
   const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'
   let token = ''
@@ -31,6 +33,11 @@ export const isVersionOutdated = (currentVersion: string, latestVersion: string)
     return true
   else
     return false
+}
+
+export const copyToClipboard = (text: string) => {
+  Spicetify.showNotification('Copied: ' + text)
+  Spicetify.Platform.ClipboardAPI.copy(text)
 }
 
 const ghCache = JSON.parse(localStorage.getItem('wnp-redux-gh-cache') ?? '{}')

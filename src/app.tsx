@@ -10,12 +10,11 @@ async function main() {
   while (!Spicetify?.Platform || !Spicetify?.CosmosAsync || !Spicetify?.Player)
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-  // Show warning if old cli version is installed
+  // Show warning if legacy webnowplaying.js is installed
   if (document.querySelector('script[src*="webnowplaying.js"]')) {
     openWarningPanel()
     return
   }
-
 
   wnpRedux = new WNPRedux()
   new Spicetify.Menu.Item(

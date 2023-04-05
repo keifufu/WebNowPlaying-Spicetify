@@ -8,6 +8,12 @@
   padding: 30px;
 }
 
+.command {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
 .code {
   font-family: monospace;
   color: var(--spice-subtext);
@@ -15,4 +21,12 @@
   border-radius: 5px;
   padding: 0 3px;
   margin: 3px;
+}
+
+.copy {
+  cursor: pointer;
+  padding-top: 5px;
+  &:hover {
+    color: var(--spice-text);
+  }
 }
