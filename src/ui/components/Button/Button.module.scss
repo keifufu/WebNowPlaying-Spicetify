@@ -1,0 +1,24 @@
+.button {
+  background-color: transparent;
+  border: 1px solid var(--spice-subtext);
+  border-radius: 20px;
+  color: var(--spice-subtext);
+  cursor: pointer;
+  font-weight: 600;
+  padding: 10px 20px;
+  text-transform: uppercase;
+  transition: all 0.15s ease-in-out;
+  &:hover:not(:disabled) {
+    background-color: var(--spice-subtext);
+    color: var(--spice-main);
+  }
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+.buttonSmall {
+  padding: 5px 10px;
+  font-size: 0.8rem;
+}

@@ -1,0 +1,31 @@
+.name {
+  color: var(--spice-subtext);
+  font-weight: 600;
+  margin: 0 0.5rem;
+}
+
+.adapter {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  margin: 0.5rem 0;
+}
+
+.authorName {
+  margin-left: 0.25rem;
+  opacity: 0.8;
+}
+
+.authors {
+  display: flex;
+  align-items: center;
+}
+
+.version {
+  margin-left: auto;
+}
+
+.updateAvailable {
+  color: orange;
+}

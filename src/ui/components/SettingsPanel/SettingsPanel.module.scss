@@ -1,0 +1,47 @@
+.background {
+  cursor: pointer
+}
+
+.main {
+  background-color: var(--spice-main);
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  padding: 20px 30px;
+  cursor: default;
+  max-height: 75%;
+  max-width: 75%;
+}
+
+.inner {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding-right: 5px;
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+  &::-webkit-scrollbar-thumb {
+    background-color: var(--spice-subtext);
+    border-radius: 10px;
+  }
+}
+
+.submitAdapter {
+  align-self: center;
+  margin-top: 20px;
+}
+
+.header {
+  padding-bottom: 10px;
+}
+
+.buttonContainer {
+  display: flex;
+  padding-top: 30px;
+  justify-content: flex-end;
+
+  > * {
+    margin-left: 10px;
+  }
+}
