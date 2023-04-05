@@ -4,9 +4,9 @@ It can be used together with [WebNowPlaying-Redux](https://github.com/keifufu/We
 
 ## Settings panel
 Access it by clicking on your name in the top right -> WebNowPlaying  
-<p style="display:flex;align-items:center;">
-  <img style="border-radius:10px;" src="images/opening.jpg?raw=true" width="300" alt="accessing the settings panel">
-  <img style="border-radius:10px;" src="images/settingspanel.jpg?raw=true" width="350" alt="settings panel">
+<p align="center">
+  <img align="center" src="images/opening.jpg?raw=true" width="300" alt="accessing the settings panel">
+  <img align="center" src="images/settingspanel.jpg?raw=true" width="350" alt="settings panel">
 </p>
 
 ## Adapters
