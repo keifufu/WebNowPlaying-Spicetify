@@ -40,7 +40,7 @@ const Adapter: React.FC<{ adapter: TAdapter, enabled: boolean, info: SocketInfo 
   return (
     <div className={styles.adapter}>
       <Toggle
-        color={props.info.isConnected ? 'lime' : props.info.isConnecting ? 'orange' : 'tomato'}
+        color={props.info.isConnected ? 'lime' : props.info.isConnecting ? 'orange' : '#434756'}
         checked={props.enabled}
         disabled={toggleDisabled}
         onChange={() => {
