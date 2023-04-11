@@ -5,7 +5,7 @@ import { WNPReduxWebSocket } from './socket'
 
 export class WNPRedux {
   mediaInfo = {
-    player: '',
+    player: 'Spotify Desktop',
     state: StateMode.STOPPED,
     title: '',
     artist: '',
