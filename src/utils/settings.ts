@@ -33,19 +33,27 @@ export enum StateMode { STOPPED = 'STOPPED', PLAYING = 'PLAYING', PAUSED = 'PAUS
 export enum RepeatMode { NONE = 'NONE', ONE = 'ONE', ALL = 'ALL' }
 
 export type MediaInfo = {
-  player: string
+  playerName: string
+  playerControls: string
   state: StateMode
   title: string
   artist: string
   album: string
-  cover: string
-  duration: string
-  position: string
+  coverUrl: string
+  durationSeconds: number
+  positionSeconds: number
   volume: number
   rating: number
-  repeat: RepeatMode
-  shuffle: boolean
+  repeatMode: RepeatMode
+  shuffleActive: boolean
   timestamp: number
+}
+
+export enum RatingSystem {
+  NONE = 'NONE',
+  LIKE_DISLIKE = 'LIKE_DISLIKE',
+  LIKE = 'LIKE',
+  SCALE = 'SCALE'
 }
 
 // === Constants ===

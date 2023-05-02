@@ -1,22 +1,33 @@
 /* global Spicetify */
 import { timeInSecondsToString } from '../utils/misc'
-import { Adapter, BuiltInAdapters, CustomAdapter, RepeatMode, SocketInfoMap, StateMode, defaultSocketInfo, getSettings } from '../utils/settings'
+import { Adapter, BuiltInAdapters, CustomAdapter, RatingSystem, RepeatMode, SocketInfoMap, StateMode, defaultSocketInfo, getSettings } from '../utils/settings'
 import { WNPReduxWebSocket } from './socket'
 
 export class WNPRedux {
   mediaInfo = {
-    player: 'Spotify Desktop',
+    playerName: 'Spotify Desktop',
+    playerControls: JSON.stringify({
+      supports_play_pause: true,
+      supports_skip_previous: true,
+      supports_skip_next: true,
+      supports_set_position: true,
+      supports_set_volume: true,
+      supports_toggle_repeat_mode: true,
+      supports_toggle_shuffle_active: true,
+      supports_set_rating: true,
+      rating_system: RatingSystem.LIKE
+    }),
     state: StateMode.STOPPED,
     title: '',
     artist: '',
     album: '',
-    cover: '',
-    duration: '0:00',
-    position: '0:00',
+    coverUrl: '',
+    durationSeconds: 0,
+    positionSeconds: 0,
     volume: 100,
     rating: 0,
-    repeat: RepeatMode.NONE,
-    shuffle: false,
+    repeatMode: RepeatMode.NONE,
+    shuffleActive: false,
     timestamp: 0
   }
   sockets = new Map<number, WNPReduxWebSocket>()
@@ -29,10 +40,10 @@ export class WNPRedux {
       const meta = data.track.metadata
       this.mediaInfo.title = meta.title
       this.mediaInfo.album = meta.album_title
-      this.mediaInfo.duration = timeInSecondsToString(Math.round(parseInt(meta.duration) / 1000))
+      this.mediaInfo.durationSeconds = Math.round(parseInt(meta.duration) / 1000)
       this.mediaInfo.state = data.is_paused ? StateMode.PAUSED : StateMode.PLAYING
-      this.mediaInfo.repeat = data.options.repeating_track ? RepeatMode.ONE : data.options.repeating_context ? RepeatMode.ALL : RepeatMode.NONE
-      this.mediaInfo.shuffle = data.options.shuffling_context
+      this.mediaInfo.repeatMode = data.options.repeating_track ? RepeatMode.ONE : data.options.repeating_context ? RepeatMode.ALL : RepeatMode.NONE
+      this.mediaInfo.shuffleActive = data.options.shuffling_context
       this.mediaInfo.artist = meta.artist_name
       let artistCount = 1
       while (meta['artist_name:' + artistCount]) {
@@ -44,8 +55,8 @@ export class WNPRedux {
       Spicetify.Platform.LibraryAPI.contains(data.track.uri).then(([added]: any) => (this.mediaInfo.rating = added ? 5 : 0))
 
       const cover = meta.image_xlarge_url
-      if (cover?.indexOf('localfile') === -1) this.mediaInfo.cover = 'https://i.scdn.co/image/' + cover.substring(cover.lastIndexOf(':') + 1)
-      else this.mediaInfo.cover = ''
+      if (cover?.indexOf('localfile') === -1) this.mediaInfo.coverUrl = 'https://i.scdn.co/image/' + cover.substring(cover.lastIndexOf(':') + 1)
+      else this.mediaInfo.coverUrl = ''
 
       this.updateAll()
     })
@@ -71,7 +82,7 @@ export class WNPRedux {
   }
 
   public updateAll() {
-    this.mediaInfo.position = timeInSecondsToString(Math.round(Spicetify.Player.getProgress() / 1000))
+    this.mediaInfo.positionSeconds = Math.round(Spicetify.Player.getProgress() / 1000)
     this.mediaInfo.volume = Math.round(Spicetify.Player.getVolume() * 100)
 
     for (const socket of this.sockets.values())
@@ -85,6 +96,9 @@ export class WNPRedux {
         break
       case '1':
         ExecuteEventRev1(this, data)
+        break
+      case '2':
+        ExecuteEventRev2(this, data)
         break
       default:
     }
@@ -143,121 +157,180 @@ export class WNPRedux {
 }
 
 function ExecuteEventLegacy(self: WNPRedux, message: string) {
-  // Quite lengthy functions because we optimistically update spicetifyInfo after receiving events.
-  try {
-    const [type, data] = message.toUpperCase().split(' ')
-    switch (type) {
-      case 'PLAYPAUSE': {
-        Spicetify.Player.togglePlay()
-        self.mediaInfo.state = self.mediaInfo.state === StateMode.PLAYING ? StateMode.PAUSED : StateMode.PLAYING
-        break
-      }
-      case 'NEXT':
-        Spicetify.Player.next()
-        break
-      case 'PREVIOUS':
-        Spicetify.Player.back()
-        break
-      case 'SETPOSITION': {
-        // Example string: SetPosition 34:SetProgress 0,100890207715134:
-        const [, positionPercentage] = message.toUpperCase().split(':')[1].split('SETPROGRESS ')
-        Spicetify.Player.seek(parseFloat(positionPercentage.replace(',', '.')))
-        break
-      }
-      case 'SETVOLUME':
-        Spicetify.Player.setVolume(parseInt(data) / 100)
-        self.mediaInfo.volume = parseInt(data)
-        break
-      case 'REPEAT': {
-        Spicetify.Player.toggleRepeat()
-        self.mediaInfo.repeat = self.mediaInfo.repeat === RepeatMode.NONE ? RepeatMode.ALL : self.mediaInfo.repeat === RepeatMode.ALL ? RepeatMode.ONE : RepeatMode.NONE
-        break
-      }
-      case 'SHUFFLE': {
-        Spicetify.Player.toggleShuffle()
-        self.mediaInfo.shuffle = !self.mediaInfo.shuffle
-        break
-      }
-      case 'TOGGLETHUMBSUP': {
-        Spicetify.Player.toggleHeart()
-        self.mediaInfo.rating = self.mediaInfo.rating === 5 ? 0 : 5
-        break
-      }
-      // Spotify doesn't have a negative rating
-      // case 'TOGGLETHUMBSDOWN': break
-      case 'RATING': {
-        const rating = parseInt(data)
-        const isLiked = self.mediaInfo.rating > 3
-        if (rating >= 3 && !isLiked) Spicetify.Player.toggleHeart()
-        else if (rating < 3 && isLiked) Spicetify.Player.toggleHeart()
-        self.mediaInfo.rating = rating
-        break
-      }
-      default:
-        console.warn(`WNPReduxSpicetify: Unknown event: ${message}`)
-        break
+  enum Events {
+    PLAYPAUSE,
+    PREVIOUS,
+    NEXT,
+    SETPOSITION,
+    SETVOLUME,
+    REPEAT,
+    SHUFFLE,
+    TOGGLETHUMBSUP,
+    TOGGLETHUMBSDOWN,
+    RATING
+  }
+
+  const [type, data] = message.toUpperCase().split(' ')
+  switch (Events[type as keyof typeof Events]) {
+    case Events.PLAYPAUSE: {
+      Spicetify.Player.togglePlay()
+      self.mediaInfo.state = self.mediaInfo.state === StateMode.PLAYING ? StateMode.PAUSED : StateMode.PLAYING
+      break
     }
-  } catch (e) {
-    console.error(`WNPReduxSpicetify: Error while executing event: ${e}`)
+    case Events.PREVIOUS: Spicetify.Player.back(); break
+    case Events.NEXT: Spicetify.Player.next(); break
+    case Events.SETPOSITION: {
+      // Example string: SetPosition 34:SetProgress 0,100890207715134:
+      const [, positionPercentage] = message.toUpperCase().split(':')[1].split('SETPROGRESS ')
+      // We replace(',', '.') because all legacy versions didn't use InvariantCulture
+      Spicetify.Player.seek(parseFloat(positionPercentage.replace(',', '.')))
+      break
+    }
+    case Events.SETVOLUME:
+      Spicetify.Player.setVolume(parseInt(data) / 100)
+      self.mediaInfo.volume = parseInt(data)
+      break
+    case Events.REPEAT: {
+      Spicetify.Player.toggleRepeat()
+      self.mediaInfo.repeatMode = self.mediaInfo.repeatMode === RepeatMode.NONE ? RepeatMode.ALL : self.mediaInfo.repeatMode === RepeatMode.ALL ? RepeatMode.ONE : RepeatMode.NONE
+      break
+    }
+    case Events.SHUFFLE: {
+      Spicetify.Player.toggleShuffle()
+      self.mediaInfo.shuffleActive = !self.mediaInfo.shuffleActive
+      break
+    }
+    case Events.TOGGLETHUMBSUP: {
+      Spicetify.Player.toggleHeart()
+      self.mediaInfo.rating = self.mediaInfo.rating === 5 ? 0 : 5
+      break
+    }
+    case Events.TOGGLETHUMBSDOWN: break
+    case Events.RATING: {
+      const rating = parseInt(data)
+      const isLiked = self.mediaInfo.rating > 3
+      if (rating >= 3 && !isLiked) Spicetify.Player.toggleHeart()
+      else if (rating < 3 && isLiked) Spicetify.Player.toggleHeart()
+      self.mediaInfo.rating = rating
+      break
+    }
+    default:
+      console.warn(`WNPReduxSpicetify: Unknown event: ${message}`)
+      break
   }
 }
 
 function ExecuteEventRev1(self: WNPRedux, message: string) {
-  // Quite lengthy functions because we optimistically update spicetifyInfo after receiving events.
-  const [type, data] = message.split(' ')
+  enum Events {
+    TOGGLE_PLAYING,
+    PREVIOUS,
+    NEXT,
+    SET_POSITION,
+    SET_VOLUME,
+    TOGGLE_REPEAT,
+    TOGGLE_SHUFFLE,
+    TOGGLE_THUMBS_UP,
+    TOGGLE_THUMBS_DOWN,
+    SET_RATING
+  }
 
-  try {
-    switch (type) {
-      case 'TOGGLE_PLAYING': {
-        Spicetify.Player.togglePlay()
-        self.mediaInfo.state = self.mediaInfo.state === StateMode.PLAYING ? StateMode.PAUSED : StateMode.PLAYING
-        break
-      }
-      case 'NEXT':
-        Spicetify.Player.next()
-        break
-      case 'PREVIOUS':
-        Spicetify.Player.back()
-        break
-      case 'SET_POSITION': {
-        const [, positionPercentage] = data.split(':')
-        Spicetify.Player.seek(parseFloat(positionPercentage.replace(',', '.')))
-        break
-      }
-      case 'SET_VOLUME':
-        Spicetify.Player.setVolume(parseInt(data) / 100)
-        self.mediaInfo.volume = parseInt(data)
-        break
-      case 'TOGGLE_REPEAT': {
-        Spicetify.Player.toggleRepeat()
-        self.mediaInfo.repeat = self.mediaInfo.repeat === RepeatMode.NONE ? RepeatMode.ALL : self.mediaInfo.repeat === RepeatMode.ALL ? RepeatMode.ONE : RepeatMode.NONE
-        break
-      }
-      case 'TOGGLE_SHUFFLE': {
-        Spicetify.Player.toggleShuffle()
-        self.mediaInfo.shuffle = !self.mediaInfo.shuffle
-        break
-      }
-      case 'TOGGLE_THUMBS_UP': {
-        Spicetify.Player.toggleHeart()
-        self.mediaInfo.rating = self.mediaInfo.rating === 5 ? 0 : 5
-        break
-      }
-      // Spotify doesn't have a negative rating
-      // case 'TOGGLE_THUMBS_DOWN': break
-      case 'SET_RATING': {
-        const rating = parseInt(data)
-        const isLiked = self.mediaInfo.rating > 3
-        if (rating >= 3 && !isLiked) Spicetify.Player.toggleHeart()
-        else if (rating < 3 && isLiked) Spicetify.Player.toggleHeart()
-        self.mediaInfo.rating = rating
-        break
-      }
-      default:
-        console.warn(`WNPReduxSpicetify: Unknown event: ${message}`)
-        break
+  const [type, data] = message.toUpperCase().split(' ')
+  switch (Events[type as keyof typeof Events]) {
+    case Events.TOGGLE_PLAYING: {
+      Spicetify.Player.togglePlay()
+      self.mediaInfo.state = self.mediaInfo.state === StateMode.PLAYING ? StateMode.PAUSED : StateMode.PLAYING
+      break
     }
-  } catch (e) {
-    console.error(`WNPReduxSpicetify: Error while executing event: ${e}`)
+    case Events.PREVIOUS: Spicetify.Player.back(); break
+    case Events.NEXT: Spicetify.Player.next(); break
+    case Events.SET_POSITION: {
+      const [, positionPercentage] = data.split(':')
+      // We still replace(',', '.') because v1.0.0 - v1.0.5 didn't use InvariantCulture
+      Spicetify.Player.seek(parseFloat(positionPercentage.replace(',', '.')))
+      break
+    }
+    case Events.SET_VOLUME:
+      Spicetify.Player.setVolume(parseInt(data) / 100)
+      self.mediaInfo.volume = parseInt(data)
+      break
+    case Events.TOGGLE_REPEAT: {
+      Spicetify.Player.toggleRepeat()
+      self.mediaInfo.repeatMode = self.mediaInfo.repeatMode === RepeatMode.NONE ? RepeatMode.ALL : self.mediaInfo.repeatMode === RepeatMode.ALL ? RepeatMode.ONE : RepeatMode.NONE
+      break
+    }
+    case Events.TOGGLE_SHUFFLE: {
+      Spicetify.Player.toggleShuffle()
+      self.mediaInfo.shuffleActive = !self.mediaInfo.shuffleActive
+      break
+    }
+    case Events.TOGGLE_THUMBS_UP: {
+      Spicetify.Player.toggleHeart()
+      self.mediaInfo.rating = self.mediaInfo.rating === 5 ? 0 : 5
+      break
+    }
+    case Events.TOGGLE_THUMBS_DOWN: break
+    case Events.SET_RATING: {
+      const rating = parseInt(data)
+      const isLiked = self.mediaInfo.rating > 3
+      if (rating >= 3 && !isLiked) Spicetify.Player.toggleHeart()
+      else if (rating < 3 && isLiked) Spicetify.Player.toggleHeart()
+      self.mediaInfo.rating = rating
+      break
+    }
+    default:
+      console.warn(`WNPReduxSpicetify: Unknown event: ${message}`)
+      break
+  }
+}
+
+function ExecuteEventRev2(self: WNPRedux, message: string) {
+  enum Events {
+    TRY_SET_STATE,
+    TRY_SKIP_PREVIOUS,
+    TRY_SKIP_NEXT,
+    TRY_SET_POSITION,
+    TRY_SET_VOLUME,
+    TRY_TOGGLE_REPEAT_MODE,
+    TRY_TOGGLE_SHUFFLE_ACTIVE,
+    TRY_SET_RATING
+  }
+
+  const [type, data] = message.toUpperCase().split(' ')
+  switch (Events[type as keyof typeof Events]) {
+    case Events.TRY_SET_STATE: { 
+      data === 'PLAYING' ? Spicetify.Player.play() : Spicetify.Player.pause();
+      self.mediaInfo.state = self.mediaInfo.state === StateMode.PLAYING ? StateMode.PAUSED : StateMode.PLAYING  
+      break
+    }
+    case Events.TRY_SKIP_PREVIOUS: Spicetify.Player.back(); break
+    case Events.TRY_SKIP_NEXT: Spicetify.Player.next(); break
+    case Events.TRY_SET_POSITION: {
+      const [, positionPercentage] = data.split(':')
+      Spicetify.Player.seek(parseFloat(positionPercentage))
+      break
+    }
+    case Events.TRY_SET_VOLUME:
+      Spicetify.Player.setVolume(parseInt(data) / 100)
+      self.mediaInfo.volume = parseInt(data)
+      break
+    case Events.TRY_TOGGLE_REPEAT_MODE:
+      Spicetify.Player.toggleRepeat()
+      self.mediaInfo.repeatMode = self.mediaInfo.repeatMode === RepeatMode.NONE ? RepeatMode.ALL : self.mediaInfo.repeatMode === RepeatMode.ALL ? RepeatMode.ONE : RepeatMode.NONE
+      break
+    case Events.TRY_TOGGLE_SHUFFLE_ACTIVE: 
+      Spicetify.Player.toggleShuffle()
+      self.mediaInfo.shuffleActive = !self.mediaInfo.shuffleActive
+      break
+    case Events.TRY_SET_RATING: {
+      const rating = parseInt(data)
+      const isLiked = self.mediaInfo.rating > 3
+      if (rating >= 3 && !isLiked) Spicetify.Player.toggleHeart()
+      else if (rating < 3 && isLiked) Spicetify.Player.toggleHeart()
+      self.mediaInfo.rating = rating
+      break
+    }
+    default:
+      console.warn(`WNPReduxSpicetify: Unknown event: ${message}`)
+      break
   }
 }

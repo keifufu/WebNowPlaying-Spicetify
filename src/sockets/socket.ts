@@ -1,3 +1,4 @@
+import { timeInSecondsToString } from '../utils/misc'
 import { Adapter, CustomAdapter, MediaInfo, RepeatMode, StateMode } from '../utils/settings'
 
 export class WNPReduxWebSocket {
@@ -143,31 +144,34 @@ export class WNPReduxWebSocket {
       case '1':
         SendMediaInfoRev1(this, mediaInfo)
         break
+      case '2':
+        SendMediaInfoRev2(this, mediaInfo)
+        break
       default: break
     }
   }
 }
 
-function SendMediaInfoRev1(self: WNPReduxWebSocket, mediaInfo: MediaInfo) {
-  for (const key in mediaInfo) {
-    if (key === 'timestamp') return
-    const value = mediaInfo[key as keyof MediaInfo]
-    // Check for null, and not just falsy, because 0 and '' are falsy
-    if (value !== null && value !== self.cache.get(key)) {
-      self.send(`${key.toUpperCase()} ${value}`)
-      self.cache.set(key, value)
-    }
-  }
-}
-
 function SendMediaInfoLegacy(self: WNPReduxWebSocket, mediaInfo: MediaInfo) {
-  for (const key in mediaInfo) {
-    if (key === 'timestamp') return
+  for (let key in mediaInfo) {
+    if (key === 'timestamp' || key === 'playerControls') continue
     let value = mediaInfo[key as keyof MediaInfo]
+
+    // Conversion to legacy keys
+    if (key === 'playerName') key = 'player'
+    else if (key === 'coverUrl') key = 'cover'
+    else if (key === 'durationSeconds') key = 'duration'
+    else if (key === 'positionSeconds') key = 'position'
+    else if (key === 'repeatMode') key = 'repeat'
+    else if (key === 'shuffleActive') key = 'shuffle'
 
     // Conversion to legacy values
     if (key === 'state')
       value = value === StateMode.PLAYING ? 1 : value === StateMode.PAUSED ? 2 : 0
+    else if (key === 'duration')
+      value = timeInSecondsToString(value as number)
+    else if (key === 'position')
+      value = timeInSecondsToString(value as number)
     else if (key === 'repeat')
       value = value === RepeatMode.ALL ? 2 : value === RepeatMode.ONE ? 1 : 0
     else if (key === 'shuffle')
@@ -176,6 +180,47 @@ function SendMediaInfoLegacy(self: WNPReduxWebSocket, mediaInfo: MediaInfo) {
     // Check for null, and not just falsy, because 0 and '' are falsy
     if (value !== null && value !== self.cache.get(key)) {
       self.send(`${key.toUpperCase()}:${value}`)
+      self.cache.set(key, value)
+    }
+  }
+}
+
+function SendMediaInfoRev1(self: WNPReduxWebSocket, mediaInfo: MediaInfo) {
+  for (let key in mediaInfo) {
+    if (key === 'timestamp' || key === 'playerControls') continue
+    let value = mediaInfo[key as keyof MediaInfo]
+
+    // Conversion to rev1 keys
+    if (key === 'playerName') key = 'player'
+    else if (key === 'coverUrl') key = 'cover'
+    else if (key === 'durationSeconds') key = 'duration'
+    else if (key === 'positionSeconds') key = 'position'
+    else if (key === 'repeatMode') key = 'repeat'
+    else if (key === 'shuffleActive') key = 'shuffle'
+
+    // Conversion to rev1 values
+    if (key === 'duration')
+      value = timeInSecondsToString(value as number)
+    else if (key === 'position')
+      value = timeInSecondsToString(value as number)
+
+    // Check for null, and not just falsy, because 0 and '' are falsy
+    if (value !== null && value !== self.cache.get(key)) {
+      self.send(`${key.toUpperCase()} ${value}`)
+      self.cache.set(key, value)
+    }
+  }
+}
+
+const formatKey = (key: string) => key.replace(/([a-z])([A-Z])/g, '$1_$2').toUpperCase()
+
+function SendMediaInfoRev2(self: WNPReduxWebSocket, mediaInfo: MediaInfo) {
+  for (const key in mediaInfo) {
+    if (key === 'timestamp') continue
+    const value = mediaInfo[key as keyof MediaInfo]
+    // Check for null, and not just falsy, because 0 and '' are falsy
+    if (value !== null && value !== self.cache.get(key)) {
+      self.send(`${formatKey(key)} ${value}`)
       self.cache.set(key, value)
     }
   }
