@@ -1,5 +1,4 @@
 /* global Spicetify */
-import { timeInSecondsToString } from '../utils/misc'
 import { Adapter, BuiltInAdapters, CustomAdapter, RatingSystem, RepeatMode, SocketInfoMap, StateMode, defaultSocketInfo, getSettings } from '../utils/settings'
 import { WNPReduxWebSocket } from './socket'
 
@@ -297,9 +296,9 @@ function ExecuteEventRev2(self: WNPRedux, message: string) {
 
   const [type, data] = message.toUpperCase().split(' ')
   switch (Events[type as keyof typeof Events]) {
-    case Events.TRY_SET_STATE: { 
-      data === 'PLAYING' ? Spicetify.Player.play() : Spicetify.Player.pause();
-      self.mediaInfo.state = self.mediaInfo.state === StateMode.PLAYING ? StateMode.PAUSED : StateMode.PLAYING  
+    case Events.TRY_SET_STATE: {
+      data === 'PLAYING' ? Spicetify.Player.play() : Spicetify.Player.pause()
+      self.mediaInfo.state = self.mediaInfo.state === StateMode.PLAYING ? StateMode.PAUSED : StateMode.PLAYING
       break
     }
     case Events.TRY_SKIP_PREVIOUS: Spicetify.Player.back(); break
@@ -317,7 +316,7 @@ function ExecuteEventRev2(self: WNPRedux, message: string) {
       Spicetify.Player.toggleRepeat()
       self.mediaInfo.repeatMode = self.mediaInfo.repeatMode === RepeatMode.NONE ? RepeatMode.ALL : self.mediaInfo.repeatMode === RepeatMode.ALL ? RepeatMode.ONE : RepeatMode.NONE
       break
-    case Events.TRY_TOGGLE_SHUFFLE_ACTIVE: 
+    case Events.TRY_TOGGLE_SHUFFLE_ACTIVE:
       Spicetify.Player.toggleShuffle()
       self.mediaInfo.shuffleActive = !self.mediaInfo.shuffleActive
       break
