@@ -113,6 +113,9 @@ export class WNPReduxWebSocket {
         case '1':
           this.executeEvent('1', event.data)
           break
+        case '2':
+          this.executeEvent('2', event.data)
+          break
         default: break
       }
     } else {
