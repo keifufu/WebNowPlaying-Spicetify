@@ -1,3 +1,11 @@
+# Deprecated
+This extension is deprecated as of 2023-05-10.  
+Its functionality has mostly been replaced by [Native APIs](https://github.com/keifufu/WebNowPlaying-Redux/blob/main/NativeAPIs.md).  
+If you use Native APIs together with this extension, they will conflict.  
+You can turn Native APIs off in the extension settings or disable this extension.  
+
+--- 
+
 # WebNowPlaying-Redux-Spicetify
 A [spicetify-marketplace](https://github.com/spicetify/spicetify-marketplace) extension that connects Spotify Desktop with [WebNowPlaying-Redux](https://github.com/keifufu/WebNowPlaying-Redux) adapters.  
 It can be used together with [WebNowPlaying-Redux](https://github.com/keifufu/WebNowPlaying-Redux) to get information from both the browser and Spotify Desktop.
